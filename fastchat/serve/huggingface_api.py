@@ -33,28 +33,6 @@ def get_input(input_file: str):
         yield item["question_id"], item["question"], item["context"]
         
 
-default_retrieved_user_template = """Respond to this question using the given context.
-Question:
-{question}
-
-Context:
-{context}
-"""
-
-default_orig_user_template = """Respond to this question.
-Question:
-{question}
-"""
-
-RESERVED_NEW_TOKENS = 512
-
-def get_input(input_file: str):
-    with open(input_file) as f:
-        items = json.load(f)
-    for item in items:
-        yield item["question_id"], item["question"], item["context"]
-        
-
 @torch.inference_mode()
 def main(args):
     print("Loading model...")
@@ -68,7 +46,7 @@ def main(args):
         debug=args.debug,
     )
     
-    max_context_len = tokenizer.model_max_length
+
     print(f"Max context length: for {args.model_path}: {max_context_len} tokens")
 
     responses = []

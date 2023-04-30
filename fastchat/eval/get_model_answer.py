@@ -1,5 +1,5 @@
 import argparse
-from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
 import json
@@ -8,6 +8,7 @@ import shortuuid
 import ray
 
 from fastchat.conversation import get_default_conv_template
+RESERVED_NEW_TOKENS = 512
 
 
 def run_eval(model_path, model_id, question_file, answer_file, num_gpus):
@@ -43,6 +44,8 @@ def get_model_answers(model_path, model_id, question_jsons):
     model = AutoModelForCausalLM.from_pretrained(
         model_path, low_cpu_mem_usage=True, torch_dtype=torch.float16
     ).cuda()
+    
+    max_context_len = tokenizer.model_max_length
 
     ans_jsons = []
     for i, line in enumerate(tqdm(question_jsons)):
@@ -53,12 +56,16 @@ def get_model_answers(model_path, model_id, question_jsons):
         conv.append_message(conv.roles[0], qs)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
-        input_ids = tokenizer([prompt]).input_ids
+        input_ids = tokenizer(
+            [prompt],
+            truncation=True,
+            max_length=max_context_len - RESERVED_NEW_TOKENS,
+            ).input_ids
         output_ids = model.generate(
             torch.as_tensor(input_ids).cuda(),
             do_sample=True,
             temperature=0.7,
-            max_new_tokens=1024,
+            max_new_tokens=RESERVED_NEW_TOKENS,
         )
         output_ids = output_ids[0][len(input_ids[0]):]
         outputs = tokenizer.decode(output_ids, skip_special_tokens=True).strip()
